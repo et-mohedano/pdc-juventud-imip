@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Encuesta para Juventudes · IMIP Pachuca (PDC)</title>
+  <!-- Leaflet (mapas) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{
+      --primary:#651f3b; --primary-900:#4a162b; --secondary:#9c5a89; --accent:#f2b380; --bg:#faf9fb;
+      --ok:#21a67a; --maybe:#e7a73b; --no:#e05353;
+      --text:#1f2937; --muted:#6b7280;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eee;z-index:50}
+    .wrap{max-width:1100px;margin:auto;padding:16px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .brand h1{font-size:18px;margin:0;color:var(--primary)}
+    .hero{background:linear-gradient(135deg,#fff, #f8f1f5);border:1px solid #f2e6ee;border-radius:16px;padding:16px}
+    nav a{margin-right:8px;padding:6px 10px;border-radius:8px;text-decoration:none;color:#444;border:1px solid #e7e7e7;background:#fff}
+    nav a.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .card{background:#fff;border:1px solid #eee;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+    h2,h3{margin:0 0 8px}
+    .muted{color:var(--muted);font-size:14px}
+    ol.instructions{line-height:1.6;padding-left:22px}
+    .grid{display:grid;gap:14px}
+    .grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (max-width:900px){.grid.cols-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:600px){.grid.cols-2,.grid.cols-3{grid-template-columns:1fr}}
+
+    /* Tarjetas de imagen con selector 3 estados */
+    .img-card{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+    .img-el{width:100%;height:160px;object-fit:cover;background:#f3f3f3}
+    .img-opts{display:flex;gap:8px;padding:10px;border-top:1px solid #f0f0f0}
+    .tri-btn{flex:1;border:1px solid #e7e7e7;border-radius:10px;padding:8px 10px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;font-size:14px}
+    .tri-btn[data-state="si"].active{border-color:var(--ok);background:#eefaf5;color:#0b664e}
+    .tri-btn[data-state="aveces"].active{border-color:var(--maybe);background:#fff8ea;color:#8a5a07}
+    .tri-btn[data-state="no"].active{border-color:var(--no);background:#fff0f0;color:#7a0f0f}
+
+    textarea{width:100%;min-height:80px;padding:10px;border-radius:10px;border:1px solid #e0e0e0}
+    input[type="text"],input[type="email"]{width:100%;padding:10px;border-radius:10px;border:1px solid #e0e0e0}
+
+    #map{height:420px;border-radius:12px;border:1px solid #e7e7e7}
+    .map-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+    select,button{border:1px solid #e0e0e0;border-radius:10px;padding:9px 12px;background:#fff}
+    button.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    button.warning{background:#fff8ea;border-color:#f2cf78}
+    button.danger{background:#fff0f0;border-color:#e38}
+
+    .footer-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .kbd{background:#f3f3f3;border:1px solid #e5e5e5;border-bottom-color:#d5d5d5;border-radius:6px;padding:1px 6px;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,"Liberation Mono","Courier New", monospace}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#f8eef3;color:#8a3b60;border:1px solid #f0d8e6;font-size:12px}
+    .legend{display:flex;gap:8px;flex-wrap:wrap}
+    .legend span{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:999px;border:1px solid #eee}
+    .dot{width:10px;height:10px;border-radius:50%}
+    .dot.ok{background:var(--ok)}.dot.maybe{background:var(--maybe)}.dot.no{background:var(--no)}
+    .error{color:#7a0f0f;background:#fff0f0;border:1px solid #ffd2d2;padding:6px 10px;border-radius:8px;display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex;justify-content:space-between;align-items:center;gap:16px">
+      <div class="brand" aria-label="IMIP Pachuca">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 2l9 4v6c0 5-3.8 9.4-9 10-5.2-.6-9-5-9-10V6l9-4z" fill="var(--primary)" opacity=".12"/><path d="M12 3.8l7.2 3.2v5.5c0 4.3-3.2 8.1-7.2 8.6-4-.5-7.2-4.3-7.2-8.6V7l7.2-3.2z" stroke="var(--primary)" stroke-width="1.2"/></svg>
+        <h1>Encuesta para Juventudes · IMIP Pachuca</h1>
+      </div>
+      <nav id="nav" aria-label="Temas de la encuesta"></nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" role="region" aria-label="Presentación">
+      <p><strong>Intención del taller (IMIP Pachuca):</strong> escuchar a las juventudes y <strong>mapear</strong> situaciones que viven en su colonia o trayectos diarios. Los insumos alimentarán la actualización del <strong>Plan Municipal de Desarrollo Urbano (PMDU)</strong> y ayudarán a priorizar mejoras.</p>
+      <p class="muted">Tus respuestas son anónimas en los reportes públicos. El correo solo se usa para dar seguimiento a este taller, si así lo autorizas.</p>
+    </section>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>
+          <h2 id="tema-title">Tema</h2>
+          <p class="muted" id="tema-desc">Prototipo navegable para validar flujo: instrucciones → percepción por imágenes → preguntas abiertas → preguntas georreferenciadas (múltiples puntos) → exportación JSON.</p>
+        </div>
+        <span id="tema-pill" class="pill">Versión prototipo</span>
+      </div>
+    </div>
+
+    <!-- Instrucciones -->
+    <section class="card" aria-labelledby="inst-title">
+      <h3 id="inst-title">Instrucciones de llenado</h3>
+      <ol class="instructions">
+        <li>Observa cada imagen y elige el indicador que mejor describe tu experiencia.</li>
+        <li>Indicadores: <strong>✅ Sí existe / se percibe</strong>, <strong>⚠️ A veces / en parte</strong>, <strong>❌ No existe / ha desaparecido</strong>.</li>
+        <li>En el mapa, selecciona la <em>pregunta georreferenciada</em> y marca <u>varios puntos</u> con un clic. Puedes arrastrarlos para ajustar su posición.</li>
+        <li>Al final, revisa tu información y presiona <span class="kbd">Descargar JSON</span> para validar el envío.</li>
+      </ol>
+      <div class="legend" aria-label="Leyenda indicadores">
+        <span><span class="dot ok"></span> Sí existe</span>
+        <span><span class="dot maybe"></span> A veces</span>
+        <span><span class="dot no"></span> No existe</span>
+      </div>
+    </section>
+
+    <!-- Identificación -->
+    <section class="card" aria-labelledby="datos-title">
+      <h3 id="datos-title">Datos de identificación</h3>
+      <div class="grid cols-3">
+        <div>
+          <label class="q" for="inp-nombre">Nombre</label>
+          <input id="inp-nombre" type="text" placeholder="Nombre(s)" autocomplete="given-name" />
+        </div>
+        <div>
+          <label class="q" for="inp-apellidos">Apellidos</label>
+          <input id="inp-apellidos" type="text" placeholder="Apellidos" autocomplete="family-name" />
+        </div>
+        <div>
+          <label class="q" for="inp-correo">Correo electrónico</label>
+          <input id="inp-correo" type="email" placeholder="ej. nombre@correo.com" autocomplete="email" />
+        </div>
+      </div>
+      <div id="err-ident" class="error" role="alert">Por favor, completa nombre y apellidos. Si capturas correo, debe tener formato válido.</div>
+    </section>
+
+    <!-- Subir foto opcional -->
+    <section class="card" aria-labelledby="foto-title">
+      <h3 id="foto-title">Foto del lugar (opcional)</h3>
+      <p class="muted">Puedes adjuntar una imagen de referencia. Solo se usa para este prototipo.</p>
+      <input type="file" id="foto" accept="image/*" />
+      <div id="foto-preview" class="img-el" style="margin-top:10px;border:1px dashed #e0e0e0;border-radius:12px;height:180px;object-fit:contain;display:flex;align-items:center;justify-content:center;color:#9ca3af">Previsualización</div>
+    </section>
+
+    <!-- Percepción por imágenes -->
+    <section class="card" aria-labelledby="percepcion-title">
+      <h3 id="percepcion-title">Sección A · Percepción por imágenes</h3>
+      <p class="muted">Selecciona el indicador para cada elemento. (Para el PDC se usan <strong>imágenes de Seguridad</strong> como ejemplo en todos los temas).</p>
+      <div id="images-grid" class="grid cols-3"></div>
+    </section>
+
+    <!-- Preguntas abiertas -->
+    <section class="card" aria-labelledby="abiertas-title">
+      <h3 id="abiertas-title">Sección B · Preguntas abiertas</h3>
+      <div id="open-questions" class="grid cols-2"></div>
+    </section>
+
+    <!-- Preguntas georreferenciadas -->
+    <section class="card" aria-labelledby="geo-title">
+      <h3 id="geo-title">Sección C · Preguntas georreferenciadas</h3>
+      <div class="map-toolbar">
+        <label for="geo-select" class="q">Pregunta seleccionada</label>
+        <select id="geo-select" aria-label="Pregunta georreferenciada"></select>
+        <button id="clear-selected" class="warning" type="button">Borrar puntos de esta pregunta</button>
+        <button id="clear-all" class="danger" type="button">Borrar todas las capas</button>
+      </div>
+      <div id="map" role="region" aria-label="Mapa interactivo"></div>
+      <p class="muted" style="margin-top:8px">Tip: haz clic en el mapa para agregar <strong>múltiples puntos</strong> para la pregunta seleccionada. Toca un punto para ver la opción <em>Eliminar</em> o arrástralo para ajustar su ubicación.</p>
+    </section>
+
+    <!-- Exportación -->
+    <section class="card" aria-labelledby="resumen-title">
+      <h3 id="resumen-title">Resumen y exportación</h3>
+      <div class="footer-actions">
+        <button class="primary" id="btn-json" type="button">Ver JSON</button>
+        <button id="btn-download" type="button">Descargar JSON</button>
+      </div>
+      <pre id="out" class="muted" style="margin-top:12px;white-space:pre-wrap"></pre>
+    </section>
+
+  </main>
+
+  <script>
+  // -----------------------------
+  // 1) Catálogo de cuestionarios
+  // -----------------------------
+  const CUESTIONARIOS = [
+    {
+      id: 'paisaje',
+      titulo: 'Percepción del paisaje',
+      desc: 'Ruido, colores, naturaleza, olores, zonas verdes y elementos que afectan tu experiencia.',
+      imagenes: [
+        { id:'ruido', label:'Zonas de alto ruido' },
+        { id:'colores', label:'Colores/imagen urbana' },
+        { id:'miedo', label:'Lugares que generan miedo' },
+        { id:'naturaleza', label:'Fauna/naturaleza' },
+        { id:'olores', label:'Malos olores' },
+        { id:'verdes', label:'Áreas verdes/agua' },
+        { id:'publicidad', label:'Exceso de publicidad' }
+      ],
+      abiertas: [
+        '¿En qué lugares sientes que el ruido es excesivo y te incomoda?',
+        '¿Qué lugares evitas transitar porque te generan miedo o inseguridad?',
+        '¿Qué lugares percibes apagados, sin vida o sin color?',
+        '¿Dónde percibes malos olores en la ciudad?',
+        '¿Qué parques o zonas verdes son significativos para ti?'
+      ],
+      geo: [
+        'Marca en el mapa lugares con ruido molesto',
+        'Ubica zonas que evitas por inseguridad',
+        'Señala puntos con malos olores'
+      ]
+    },
+    {
+      id: 'movilidad',
+      titulo: 'Movilidad',
+      desc: 'Banquetas, cruces, rutas, ciclovías, tránsito y paradas de transporte.',
+      imagenes: [
+        { id:'banquetas', label:'Banquetas seguras' },
+        { id:'cruces', label:'Cruces peatonales' },
+        { id:'paradas', label:'Paradas señalizadas' },
+        { id:'ciclovia', label:'Ciclovías' },
+        { id:'descansos', label:'Zonas de descanso' },
+        { id:'trafico', label:'Exceso de autos' }
+      ],
+      abiertas: [
+        '¿Las banquetas que usas son seguras para caminar? ¿Por qué?',
+        '¿Qué dificultades enfrentas cuando las banquetas están rotas o desniveladas?',
+        '¿Tienes paradas de transporte público cercanas?',
+        '¿Qué ciclovías o espacios seguros conoces para andar en bicicleta?'
+      ],
+      geo: [
+        'Ubica banquetas en mal estado',
+        'Marca cruces peligrosos',
+        'Señala paradas de transporte útiles o faltantes'
+      ]
+    },
+    {
+      id: 'servicios',
+      titulo: 'Servicios públicos',
+      desc: 'Agua, basura, alumbrado, salud y educación/deporte.',
+      imagenes: [
+        { id:'agua', label:'Abasto de agua' },
+        { id:'basura', label:'Recolección de basura' },
+        { id:'alumbrado', label:'Alumbrado público' },
+        { id:'salud', label:'Salud accesible' },
+        { id:'escuelas', label:'Escuelas en buen estado' }
+      ],
+      abiertas: [
+        '¿Tienes agua potable disponible todos los días en tu colonia?',
+        '¿Qué problemas genera cuando no se recolecta la basura regularmente?',
+        '¿Cómo cambia tu percepción cuando hay buen alumbrado?',
+        '¿Qué tan accesibles son los servicios de salud en tu zona?'
+      ],
+      geo: [
+        'Señala puntos con falta de agua o drenaje',
+        'Ubica lugares con acumulación de basura',
+        'Marca calles sin alumbrado o con luminarias dañadas'
+      ]
+    },
+    {
+      id: 'lugares',
+      titulo: 'Lugares de valor',
+      desc: 'Parques, plazas, patrimonio, arte público, espacios de encuentro e inclusión.',
+      imagenes: [
+        { id:'parques', label:'Parques cuidados' },
+        { id:'plazas', label:'Plazas/kioskos' },
+        { id:'patrimonio', label:'Patrimonio histórico' },
+        { id:'arte', label:'Arte urbano' },
+        { id:'inclusivos', label:'Espacios inclusivos' }
+      ],
+      abiertas: [
+        '¿Qué lugares de tu colonia funcionan como punto de encuentro?',
+        '¿Qué elementos hacen que un parque sea atractivo y seguro para ti?',
+        '¿Dónde has visto murales, esculturas u otras expresiones artísticas?'
+      ],
+      geo: [
+        'Marca parques o plazas que visites',
+        'Ubica lugares con arte público'
+      ]
+    },
+    {
+      id: 'economia',
+      titulo: 'Economía',
+      desc: 'Comercio local vs. cadenas, trabajo en casa, agricultura/ganadería, empleo juvenil.',
+      imagenes: [
+        { id:'mercado', label:'Mercado/tianguis activo' },
+        { id:'cadenas', label:'Tiendas transnacionales' },
+        { id:'ambulantes', label:'Comercio ambulante' },
+        { id:'agricultura', label:'Agricultura/Ganadería' },
+        { id:'homeoffice', label:'Trabajo en casa' }
+      ],
+      abiertas: [
+        '¿Dónde sueles comprar tus productos y por qué?',
+        '¿Qué impacto tienen las grandes tiendas en el comercio local?',
+        '¿Sigues viendo espacios de siembra o ganadería cerca?'
+      ],
+      geo: [
+        'Ubica mercados/tianguis que valoras',
+        'Marca zonas con comercio ambulante'
+      ]
+    },
+    {
+      id: 'estrategias',
+      titulo: 'Estrategias en comunidad',
+      desc: 'Redes de apoyo, actividades colectivas, diálogo con autoridades, autocuidado.',
+      imagenes: [
+        { id:'redes', label:'Redes vecinales de apoyo' },
+        { id:'colectivas', label:'Actividades colectivas' },
+        { id:'autoridades', label:'Diálogo con autoridades' },
+        { id:'defensa', label:'Estrategias de autocuidado' }
+      ],
+      abiertas: [
+        '¿Qué hacen cuando sienten inseguridad en la calle?',
+        '¿Qué tan común es la participación en actividades comunitarias?'
+      ],
+      geo: [
+        'Ubica puntos de redes vecinales/WhatsApp',
+        'Señala sitios donde se hacen jornadas (limpieza/reforestación)'
+      ]
+    },
+    {
+      id: 'seguridad',
+      titulo: 'Seguridad urbana',
+      desc: 'Alumbrado, inundaciones/hundimientos, cruces y acceso a emergencias.',
+      imagenes: [
+        { id:'alumbrado_seg', label:'Calles bien iluminadas' },
+        { id:'inundacion', label:'Zonas con inundación' },
+        { id:'cruces_seg', label:'Cruces seguros' },
+        { id:'tension', label:'Tensión social' },
+        { id:'emergencias', label:'Acceso a emergencias' }
+      ],
+      abiertas: [
+        '¿Qué calles se perciben inseguras por falta de alumbrado?',
+        '¿Qué lugares se inundan en temporada de lluvias?',
+        '¿Te resulta seguro cruzar las calles en tu zona?'
+      ],
+      geo: [
+        'Marca calles con poca iluminación',
+        'Ubica zonas de inundación o hundimientos',
+        'Señala cruces seguros/peligrosos'
+      ]
+    }
+  ];
+
+  // --------------------------------------------
+  // 2) Utilidades: lectura de query y navegación
+  // --------------------------------------------
+  const qs = new URLSearchParams(location.search);
+  const temaId = (qs.get('tema') || 'paisaje').toLowerCase();
+  const tema = CUESTIONARIOS.find(t => t.id === temaId) || CUESTIONARIOS[0];
+
+  const navEl = document.getElementById('nav');
+  CUESTIONARIOS.forEach(t => {
+    const a = document.createElement('a');
+    a.href = `?tema=${t.id}`;
+    a.textContent = t.titulo.split(' ')[0];
+    if (t.id === tema.id) a.classList.add('active');
+    navEl.appendChild(a);
+  });
+
+  document.getElementById('tema-title').textContent = tema.titulo;
+  document.getElementById('tema-desc').innerHTML = `<strong>IMIP Pachuca:</strong> ${tema.desc}`;
+  document.getElementById('tema-pill').textContent = `Tema: ${tema.titulo}`;
+
+  // ---------------------------------
+  // 3) Render: imágenes tri-estado
+  // ---------------------------------
+  const imagesGrid = document.getElementById('images-grid');
+  const triState = {}; // { imgId: 'si'|'aveces'|'no' }
+
+  // Lista de imágenes de ejemplo (tema seguridad) usadas para todos los temas en el PDC
+  const IMG_FILES = [
+    'temas/seguridad/Ilustración_sin_título-2.png',
+    'temas/seguridad/Ilustración_sin_título-3.png',
+    'temas/seguridad/Ilustración_sin_título-4.png',
+    'temas/seguridad/Ilustración_sin_título-6.png',
+    'temas/seguridad/Ilustración_sin_título-7.png',
+    'temas/seguridad/Ilustración_sin_título-9.png',
+    'temas/seguridad/Ilustración_sin_título-10.png',
+    'temas/seguridad/Ilustración_sin_título-11.png',
+    'temas/seguridad/Ilustración_sin_título-12.png',
+    'temas/seguridad/Ilustración_sin_título.png'
+  ];
+
+  tema.imagenes.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'img-card';
+
+    const img = document.createElement('img');
+    img.className = 'img-el';
+    img.src = encodeURI(IMG_FILES[idx % IMG_FILES.length]);
+    img.alt = item.label;
+
+    const opts = document.createElement('div');
+    opts.className = 'img-opts';
+
+    [['si','✅','Sí'], ['aveces','⚠️','A veces'], ['no','❌','No']].forEach(([state,icon,text])=>{
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.className='tri-btn';
+      btn.dataset.state = state;
+      btn.innerHTML = `${icon} <span>${text}</span>`;
+      btn.addEventListener('click',()=>{
+        triState[item.id] = state;
+        [...opts.children].forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      opts.appendChild(btn);
+    });
+
+    card.appendChild(img); card.appendChild(opts);
+    imagesGrid.appendChild(card);
+  });
+
+  // -----------------------------
+  // 4) Render: preguntas abiertas
+  // -----------------------------
+  const openWrap = document.getElementById('open-questions');
+  const openAnswers = {};
+  tema.abiertas.forEach((q, i)=>{
+    const box = document.createElement('div');
+    box.className='card';
+    const label = document.createElement('label');
+    label.className='q';
+    label.textContent = `${i+1}. ${q}`;
+    const ta = document.createElement('textarea');
+    ta.placeholder='Escribe tu respuesta…';
+    ta.addEventListener('input',()=>openAnswers[i]=ta.value);
+    box.appendChild(label); box.appendChild(ta);
+    openWrap.appendChild(box);
+  });
+
+  // ----------------------------------------
+  // 5) Georreferenciadas: mapa + múltiples puntos
+  // ----------------------------------------
+  const map = L.map('map').setView([20.123, -98.733], 12); // Centro aproximado Pachuca
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+  // Capa por pregunta
+  const geoLayers = {}; // key:index -> FeatureGroup
+  const geoData = {};   // key:index -> { points:[ [lat,lng], ... ] }
+  const geoMarkers = {}; // key:index -> [ marker, ... ] para manejo individual
+
+  const sel = document.getElementById('geo-select');
+  tema.geo.forEach((q, idx)=>{
+    const opt = document.createElement('option');
+    opt.value = idx; opt.textContent = `${idx+1}. ${q}`;
+    sel.appendChild(opt);
+
+    geoLayers[idx] = L.featureGroup().addTo(map);
+    geoData[idx] = { points: [] };
+    geoMarkers[idx] = [];
+  });
+
+  // Crear marcador y handlers
+  function addMarkerFor(idx, latlng){
+    const m = L.marker(latlng, { draggable:true }).addTo(geoLayers[idx]);
+    const myIndex = geoMarkers[idx].length; // índice asignado
+    m._myIdx = myIndex;
+    geoMarkers[idx].push(m);
+    geoData[idx].points.push([latlng.lat, latlng.lng]);
+
+    // Popup con eliminar
+    m.bindPopup(`<button id="del-${idx}-${myIndex}" type="button">Eliminar</button>`);
+    m.on('popupopen', () => {
+      const btn = document.getElementById(`del-${idx}-${myIndex}`);
+      if(btn){ btn.onclick = ()=> removeMarker(idx, m); }
+    });
+
+    // Drag -> actualizar
+    m.on('dragend', (ev)=>{
+      const p = ev.target.getLatLng();
+      const i = ev.target._myIdx;
+      if(geoData[idx].points[i]) geoData[idx].points[i] = [p.lat, p.lng];
+    });
+  }
+
+  function removeMarker(idx, marker){
+    const i = marker._myIdx;
+    geoLayers[idx].removeLayer(marker);
+    geoMarkers[idx].splice(i,1);
+    geoData[idx].points.splice(i,1);
+    // Reindexar los restantes
+    geoMarkers[idx].forEach((m, newI)=>{ m._myIdx = newI; m.unbindPopup(); m.bindPopup(`<button id="del-${idx}-${newI}" type="button">Eliminar</button>`).on('popupopen',()=>{
+      const btn = document.getElementById(`del-${idx}-${newI}`); if(btn){ btn.onclick = ()=> removeMarker(idx, m); }
+    }); });
+  }
+
+  // Click para agregar puntos a la pregunta seleccionada
+  map.on('click', (e)=>{
+    const key = Number(sel.value);
+    if(Number.isNaN(key)) return;
+    addMarkerFor(key, e.latlng);
+  });
+
+  // Botones limpiar
+  document.getElementById('clear-selected').addEventListener('click', ()=>{
+    const key = Number(sel.value); if(Number.isNaN(key)) return;
+    geoLayers[key].clearLayers(); geoData[key] = { points: [] }; geoMarkers[key] = [];
+  });
+  document.getElementById('clear-all').addEventListener('click', ()=>{
+    Object.values(geoLayers).forEach(g=>g.clearLayers());
+    Object.keys(geoData).forEach(k=> { geoData[k] = { points: [] }; geoMarkers[k] = []; });
+  });
+
+  // ----------------------------------
+  // 6) Foto: previsualización simple
+  // ----------------------------------
+  const fotoInput = document.getElementById('foto');
+  const fotoPrev = document.getElementById('foto-preview');
+  let fotoB64 = null;
+  fotoInput.addEventListener('change', (ev)=>{
+    const f = ev.target.files?.[0];
+    if(!f) { fotoPrev.textContent='Previsualización'; fotoPrev.style.background=''; fotoPrev.style.color='#9ca3af'; fotoB64=null; return; }
+    const reader = new FileReader();
+    reader.onload = ()=>{ fotoB64 = reader.result; fotoPrev.style.background='center/contain no-repeat url("'+fotoB64+'")'; fotoPrev.textContent=''; fotoPrev.style.color='transparent'; };
+    reader.readAsDataURL(f);
+  });
+
+  // ----------------------------------
+  // 7) Datos de identificación
+  // ----------------------------------
+  const participante = { nombre:'', apellidos:'', correo:'' };
+  const inNombre = document.getElementById('inp-nombre');
+  const inApellidos = document.getElementById('inp-apellidos');
+  const inCorreo = document.getElementById('inp-correo');
+  const errIdent = document.getElementById('err-ident');
+
+  [inNombre, inApellidos, inCorreo].forEach(el=>{
+    el && el.addEventListener('input', ()=>{
+      participante.nombre = inNombre?.value?.trim() || '';
+      participante.apellidos = inApellidos?.value?.trim() || '';
+      participante.correo = inCorreo?.value?.trim() || '';
+      errIdent.style.display = 'none';
+    });
+  });
+
+  function emailValido(email){
+    if(!email) return true; // opcional
+    return /\S+@\S+\.\S+/.test(email);
+  }
+
+  function validarIdent(){
+    if(!participante.nombre || !participante.apellidos || !emailValido(participante.correo)){
+      errIdent.style.display = 'block';
+      (participante.nombre ? (participante.apellidos ? inCorreo : inApellidos) : inNombre).focus();
+      return false;
+    }
+    return true;
+  }
+
+  // ----------------------------------
+  // 8) Exportar/descargar JSON
+  // ----------------------------------
+  function collectPayload(){
+    return {
+      meta:{ temaId: tema.id, tema: tema.titulo, timestamp:new Date().toISOString(), participante },
+      percepcion_imagenes: triState,
+      abiertas: openAnswers,
+      geo: geoData,
+      foto_b64: fotoB64
+    };
+  }
+
+  document.getElementById('btn-json').addEventListener('click', ()=>{
+    if(!validarIdent()) return;
+    const payload = collectPayload();
+    document.getElementById('out').textContent = JSON.stringify(payload, null, 2);
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  });
+
+  document.getElementById('btn-download').addEventListener('click', ()=>{
+    if(!validarIdent()) return;
+    const payload = collectPayload();
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `respuestas_${tema.id}.json`; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  </script>
+</body>
+</html>
