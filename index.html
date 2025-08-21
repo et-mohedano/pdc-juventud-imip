@@ -59,6 +59,16 @@
     .legend span{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:999px;border:1px solid #eee}
     .dot{width:10px;height:10px;border-radius:50%}
     .dot.ok{background:var(--ok)}.dot.maybe{background:var(--maybe)}.dot.no{background:var(--no)}
+    /* Icono de marcador por pregunta (DivIcon) */
+    .pin{width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25);display:block}
+    .pin:after{content:"";position:absolute;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #fff;left:50%;transform:translateX(-50%);bottom:-6px;opacity:.7}
+    /* Leyenda por pregunta */
+    .legend-geo{display:flex;flex-direction:column;gap:8px;margin:8px 0 12px}
+    .legend-geo .item{display:flex;align-items:flex-start;gap:8px;text-align:left;border:1px solid #eee;background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+    .legend-geo .item:hover{background:#fafafa}
+    .legend-geo .item.active{border-color: var(--accent); box-shadow: 0 0 0 2px rgba(242,179,128,.25)}
+    .legend-geo .dot-swatch{width:14px;height:14px;border-radius:999px;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);flex:0 0 auto;margin-top:2px}
+    .legend-geo .txt{font-size:14px;color:#374151;line-height:1.2}
     .error{color:#7a0f0f;background:#fff0f0;border:1px solid #ffd2d2;padding:6px 10px;border-radius:8px;display:none}
       /* Lightbox */
     .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:1000}
@@ -67,82 +77,6 @@
     .lb-close{position:absolute;top:16px;right:16px;border:0;background:#fff;border-radius:999px;padding:6px 10px;cursor:pointer;font-size:20px;line-height:1}
     .hero h2{margin:0 0 8px;color:var(--primary-900)}
     .hero ul{margin:8px 0 0 18px;color:var(--text)}
-    @media (max-width: 640px) {
-  header .wrap { padding: 12px 12px; }
-
-  /* Barra de navegación: carrusel horizontal con “píldoras” */
-  #nav{
-    position: relative;
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    gap: 10px;
-
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-
-    padding: 6px 8px;
-    margin: 0 -8px;
-
-    /* snap para que cada enlace se alinee al hacer scroll */
-    scroll-snap-type: x proximity;
-
-    /* desvanecido en bordes (apoyo visual) */
-    mask-image: linear-gradient(to right,
-      transparent, black 16px, black calc(100% - 16px), transparent);
-  }
-  #nav::-webkit-scrollbar { display: none; }
-
-  #nav a{
-    scroll-snap-align: start;
-    padding: 10px 14px;
-    border-radius: 999px;
-    border: 1px solid #e6e6e6;
-    background: #fff;
-    color: #374151;
-    font-weight: 600;
-    font-size: 14px;
-    line-height: 1;
-    box-shadow: 0 1px 2px rgba(0,0,0,.04);
-    transition: background .2s ease, color .2s ease, transform .12s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #nav a:active { transform: scale(.98); }
-
-  #nav a.active{
-    color: #fff;
-    background: var(--primary);
-    border-color: var(--primary);
-    box-shadow: 0 2px 6px rgba(101,31,59,.25);
-  }
-
-  /* Accesibilidad: foco visible al navegar con teclado */
-  #nav a:focus-visible{
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  /* Velos laterales para indicar que hay más opciones desplazables */
-  #nav::before, #nav::after{
-    content: "";
-    position: sticky;
-    top: 0;
-    width: 18px;
-    height: 44px;
-    pointer-events: none;
-    z-index: 2;
-  }
-  #nav::before{
-    left: 0;
-    background: linear-gradient(to right, #fff, rgba(255,255,255,0));
-  }
-  #nav::after{
-    right: 0;
-    background: linear-gradient(to left, #fff, rgba(255,255,255,0));
-  }
-}
   </style>
 </head>
 <body>
@@ -236,6 +170,7 @@
         <button id="clear-selected" class="warning" type="button">Borrar puntos de esta pregunta</button>
         <button id="clear-all" class="danger" type="button">Borrar todas las capas</button>
       </div>
+      <div id="geo-legend" class="legend-geo" aria-label="Leyenda de colores por pregunta"></div>
       <div id="map" role="region" aria-label="Mapa interactivo"></div>
       <p class="muted" style="margin-top:8px">Tip: haz clic en el mapa para agregar <strong>múltiples puntos</strong> para la pregunta seleccionada. Toca un punto para ver la opción <em>Eliminar</em> o arrástralo para ajustar su ubicación.</p>
     </section>
@@ -338,7 +273,7 @@
     },
     {
       id: 'lugares',
-      titulo: 'Lugares con identidad',
+      titulo: 'Lugares de valor',
       desc: 'Parques, plazas, patrimonio, arte público, espacios de encuentro e inclusión.',
       imagenes: [
         { id:'parques', label:'Parques cuidados' },
@@ -528,6 +463,9 @@
   const map = L.map('map').setView([20.123, -98.733], 12); // Centro aproximado Pachuca
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
+  // Paleta de colores por pregunta
+  const QUESTION_COLORS = ['#ef4444','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ec4899','#22c55e','#06b6d4','#a3e635','#f97316'];
+
   // Capa por pregunta
   const geoLayers = {}; // key:index -> FeatureGroup
   const geoData = {};   // key:index -> { points:[ [lat,lng], ... ] }
@@ -546,14 +484,28 @@
 
   // Crear marcador y handlers
   function addMarkerFor(idx, latlng){
-    const m = L.marker(latlng, { draggable:true }).addTo(geoLayers[idx]);
+    const color = QUESTION_COLORS[idx % QUESTION_COLORS.length];
+    const icon = L.divIcon({
+      className: '',
+      html: `<span class="pin" style="background:${color}"></span>`,
+      iconSize: [16,16], iconAnchor: [8,8]
+    });
+
+    const m = L.marker(latlng, { draggable:true, icon }).addTo(geoLayers[idx]);
     const myIndex = geoMarkers[idx].length; // índice asignado
     m._myIdx = myIndex;
     geoMarkers[idx].push(m);
     geoData[idx].points.push([latlng.lat, latlng.lng]);
 
-    // Popup con eliminar
-    m.bindPopup(`<button id="del-${idx}-${myIndex}" type="button">Eliminar</button>`);
+    const qtext = tema.geo[idx] || '';
+    // Popup con título de la pregunta + eliminar
+    const popHtml = `<div style="min-width:220px">
+        <div style="font-weight:600;margin-bottom:6px">${idx+1}. ${qtext}</div>
+        <button id="del-${idx}-${myIndex}" type="button" style="border:1px solid #e0e0e0;border-radius:8px;padding:6px 10px;background:#fff0f0">Eliminar</button>
+      </div>`;
+    m.bindPopup(popHtml);
+    m.bindTooltip(`${idx+1}. ${qtext}`);
+
     m.on('popupopen', () => {
       const btn = document.getElementById(`del-${idx}-${myIndex}`);
       if(btn){ btn.onclick = ()=> removeMarker(idx, m); }
@@ -577,6 +529,32 @@
       const btn = document.getElementById(`del-${idx}-${newI}`); if(btn){ btn.onclick = ()=> removeMarker(idx, m); }
     }); });
   }
+
+  // Construir leyenda por pregunta y sincronizar selección
+  const legendEl = document.getElementById('geo-legend');
+  function buildLegend(){
+    legendEl.innerHTML = '';
+    tema.geo.forEach((q, idx)=>{
+      const it = document.createElement('button');
+      it.type = 'button';
+      it.className = 'item';
+      it.dataset.idx = idx;
+      const color = QUESTION_COLORS[idx % QUESTION_COLORS.length];
+      it.innerHTML = `<span class="dot-swatch" style="background:${color}"></span><span class="txt">${idx+1}. ${q}</span>`;
+      it.addEventListener('click', ()=>{
+        sel.value = String(idx);
+        updateActiveLegend();
+        sel.dispatchEvent(new Event('change'));
+      });
+      legendEl.appendChild(it);
+    });
+    updateActiveLegend();
+  }
+  function updateActiveLegend(){
+    [...legendEl.children].forEach((el,i)=> el.classList.toggle('active', String(i)===sel.value));
+  }
+  buildLegend();
+  sel.addEventListener('change', updateActiveLegend);
 
   // Click para agregar puntos a la pregunta seleccionada
   map.on('click', (e)=>{
