@@ -35,7 +35,7 @@
 
     /* Tarjetas de imagen con selector 3 estados */
     .img-card{border:1px solid #eee;border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
-    .img-el{width:100%;height:160px;object-fit:cover;background:#f3f3f3}
+    .img-el{width:100%;height:210px;object-fit:contain;background:#f3f3f3;cursor:zoom-in}
     .img-opts{display:flex;gap:8px;padding:10px;border-top:1px solid #f0f0f0}
     .tri-btn{flex:1;border:1px solid #e7e7e7;border-radius:10px;padding:8px 10px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;justify-content:center;font-size:14px}
     .tri-btn[data-state="si"].active{border-color:var(--ok);background:#eefaf5;color:#0b664e}
@@ -60,6 +60,13 @@
     .dot{width:10px;height:10px;border-radius:50%}
     .dot.ok{background:var(--ok)}.dot.maybe{background:var(--maybe)}.dot.no{background:var(--no)}
     .error{color:#7a0f0f;background:#fff0f0;border:1px solid #ffd2d2;padding:6px 10px;border-radius:8px;display:none}
+      /* Lightbox */
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;z-index:1000}
+    .lightbox.open{display:flex}
+    .lightbox img{max-width:min(92vw,1100px);max-height:88vh;object-fit:contain;border-radius:12px;background:#fff}
+    .lb-close{position:absolute;top:16px;right:16px;border:0;background:#fff;border-radius:999px;padding:6px 10px;cursor:pointer;font-size:20px;line-height:1}
+    .hero h2{margin:0 0 8px;color:var(--primary-900)}
+    .hero ul{margin:8px 0 0 18px;color:var(--text)}
   </style>
 </head>
 <body>
@@ -75,8 +82,13 @@
 
   <main class="wrap">
     <section class="hero" role="region" aria-label="Presentación">
-      <p><strong>Intención del taller (IMIP Pachuca):</strong> escuchar a las juventudes y <strong>mapear</strong> situaciones que viven en su colonia o trayectos diarios. Los insumos alimentarán la actualización del <strong>Plan Municipal de Desarrollo Urbano (PMDU)</strong> y ayudarán a priorizar mejoras.</p>
-      <p class="muted">Tus respuestas son anónimas en los reportes públicos. El correo solo se usa para dar seguimiento a este taller, si así lo autorizas.</p>
+      <h2>Tu voz construye la ciudad</h2>
+      <ul>
+        <li>Queremos <strong>escucharte</strong> y mapear lo que vives en tu colonia o en tus trayectos diarios.</li>
+        <li>La información será insumo del <strong>PMDU de Pachuca</strong> para priorizar mejoras con enfoque de juventudes.</li>
+        <li>Participas con libertad: responde lo que conoces. Tus aportes son valiosos.</li>
+      </ul>
+      <p class="muted" style="margin-top:8px">Organiza: <strong>IMIP Pachuca</strong>. Tus respuestas serán anónimas en los reportes públicos; el correo solo se usa si aceptas recibir seguimiento del taller.</p>
     </section>
 
     <div class="card">
@@ -126,17 +138,10 @@
     </section>
 
     <!-- Subir foto opcional -->
-    <section class="card" aria-labelledby="foto-title">
-      <h3 id="foto-title">Foto del lugar (opcional)</h3>
-      <p class="muted">Puedes adjuntar una imagen de referencia. Solo se usa para este prototipo.</p>
-      <input type="file" id="foto" accept="image/*" />
-      <div id="foto-preview" class="img-el" style="margin-top:10px;border:1px dashed #e0e0e0;border-radius:12px;height:180px;object-fit:contain;display:flex;align-items:center;justify-content:center;color:#9ca3af">Previsualización</div>
-    </section>
-
-    <!-- Percepción por imágenes -->
+        <!-- Percepción por imágenes -->
     <section class="card" aria-labelledby="percepcion-title">
       <h3 id="percepcion-title">Sección A · Percepción por imágenes</h3>
-      <p class="muted">Selecciona el indicador para cada elemento. (Para el PDC se usan <strong>imágenes de Seguridad</strong> como ejemplo en todos los temas).</p>
+      <p class="muted">Selecciona el indicador para cada elemento. Puedes <strong>tocar una imagen para ampliarla</strong>. (En este prototipo se usan imágenes de Seguridad como ejemplo en todos los temas).</p>
       <div id="images-grid" class="grid cols-3"></div>
     </section>
 
@@ -168,6 +173,12 @@
       </div>
       <pre id="out" class="muted" style="margin-top:12px;white-space:pre-wrap"></pre>
     </section>
+
+    <!-- Lightbox para ampliar imágenes -->
+    <div id="lightbox" class="lightbox" aria-hidden="true" role="dialog" aria-label="Vista ampliada de la imagen">
+      <button class="lb-close" aria-label="Cerrar">×</button>
+      <img alt="Imagen ampliada" />
+    </div>
 
   </main>
 
@@ -382,6 +393,9 @@
     img.className = 'img-el';
     img.src = encodeURI(IMG_FILES[idx % IMG_FILES.length]);
     img.alt = item.label;
+    img.tabIndex = 0;
+    img.addEventListener('click',()=> openLightbox(img.src, img.alt));
+    img.addEventListener('keydown',(e)=>{ if(e.key==='Enter' || e.key===' ') openLightbox(img.src, img.alt); });
 
     const opts = document.createElement('div');
     opts.className = 'img-opts';
@@ -403,6 +417,16 @@
     card.appendChild(img); card.appendChild(opts);
     imagesGrid.appendChild(card);
   });
+
+  // Lightbox helpers
+  const lb = document.getElementById('lightbox');
+  const lbImg = lb.querySelector('img');
+  const lbClose = lb.querySelector('.lb-close');
+  function openLightbox(src, alt){ lbImg.src = src; lbImg.alt = alt || 'Imagen ampliada'; lb.setAttribute('aria-hidden','false'); lb.classList.add('open'); }
+  function closeLightbox(){ lb.classList.remove('open'); lb.setAttribute('aria-hidden','true'); }
+  lb.addEventListener('click', (e)=>{ if(e.target===lb) closeLightbox(); });
+  lbClose.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && lb.classList.contains('open')) closeLightbox(); });
 
   // -----------------------------
   // 4) Render: preguntas abiertas
@@ -496,20 +520,6 @@
   });
 
   // ----------------------------------
-  // 6) Foto: previsualización simple
-  // ----------------------------------
-  const fotoInput = document.getElementById('foto');
-  const fotoPrev = document.getElementById('foto-preview');
-  let fotoB64 = null;
-  fotoInput.addEventListener('change', (ev)=>{
-    const f = ev.target.files?.[0];
-    if(!f) { fotoPrev.textContent='Previsualización'; fotoPrev.style.background=''; fotoPrev.style.color='#9ca3af'; fotoB64=null; return; }
-    const reader = new FileReader();
-    reader.onload = ()=>{ fotoB64 = reader.result; fotoPrev.style.background='center/contain no-repeat url("'+fotoB64+'")'; fotoPrev.textContent=''; fotoPrev.style.color='transparent'; };
-    reader.readAsDataURL(f);
-  });
-
-  // ----------------------------------
   // 7) Datos de identificación
   // ----------------------------------
   const participante = { nombre:'', apellidos:'', correo:'' };
@@ -550,8 +560,7 @@
       percepcion_imagenes: triState,
       abiertas: openAnswers,
       geo: geoData,
-      foto_b64: fotoB64
-    };
+          };
   }
 
   document.getElementById('btn-json').addEventListener('click', ()=>{
